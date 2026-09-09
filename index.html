@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
+    <title>Audio Crusher</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <div class="title-bar">
+          <span class="title-bar-text">AUDIO_CRUSHER.EXE</span>
+          <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+        <div class="app-header-body">
+          <h1>Audio Crusher</h1>
+        </div>
+      </header>
+
+      <section class="card" id="loader-card">
+        <div class="title-bar">
+          <span class="title-bar-text">LOAD FILE</span>
+          <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+        <div class="card-body">
+          <label class="file-drop" id="file-drop">
+            <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac" hidden />
+            <span id="file-drop-label">Choose an audio file, or drag one here</span>
+          </label>
+          <div class="track-info" id="track-info" hidden>
+            <strong id="track-name">—</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="capture-card">
+        <div class="title-bar">
+          <span class="title-bar-text">CAPTURE TAB AUDIO</span>
+          <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+        <div class="card-body">
+          <p class="capture-hint">Play a track in a YouTube / YouTube Music tab, then capture it here — capturing runs in real time, so it takes as long as the track itself.</p>
+          <div class="capture-row">
+            <button id="capture-btn" class="capture-btn" type="button">⏺ Capture Tab Audio</button>
+            <span class="time" id="capture-elapsed" hidden>0:00</span>
+          </div>
+          <p class="capture-status" id="capture-status"></p>
+
+          <div class="capture-trim" id="capture-trim" hidden>
+            <div class="trim-waveform-wrap">
+              <canvas id="trim-waveform-canvas" class="trim-waveform-canvas"></canvas>
+            </div>
+            <div class="trim-readout">
+              <span>Start <span id="trim-start-value">0:00</span></span>
+              <span class="capture-trim-duration" id="trim-duration-label"></span>
+              <span>End <span id="trim-end-value">0:00</span></span>
+            </div>
+            <div class="capture-row">
+              <button id="trim-load-btn" class="capture-btn" type="button">Load Selected Audio</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="transport-card">
+        <div class="title-bar">
+          <span class="title-bar-text">TRANSPORT</span>
+          <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+        <div class="card-body">
+          <div class="transport-row">
+            <button id="play-btn" class="play-btn" disabled>▶</button>
+            <button id="reverse-btn" class="loop-btn" disabled title="Play in reverse" aria-pressed="false">&lt;&lt;</button>
+            <button id="loop-btn" class="loop-btn" disabled title="Loop track" aria-pressed="false">⟲</button>
+            <span class="time" id="time-current">0:00</span>
+            <input type="range" id="seek" min="0" max="1000" value="0" disabled />
+            <span class="time" id="time-duration">0:00</span>
+          </div>
+          <div class="transport-row">
+            <label class="control-label">Volume</label>
+            <input type="range" id="volume" min="0" max="100" value="80" />
+          </div>
+          <div class="transport-row">
+            <label class="control-label">Level</label>
+            <div class="level-meter" id="volume-meter">
+              <div class="level-meter-fill" id="volume-meter-fill"></div>
+            </div>
+          </div>
+          <div class="transport-row jog-row">
+            <label class="control-label">Scrub</label>
+            <div class="jog-wheel disabled" id="jog-wheel" tabindex="0" role="slider" aria-label="Scrub wheel — spin to set playback speed and direction; use left/right arrow keys to nudge the position instead, hold Shift to go faster, Ctrl for finer control" aria-valuemin="0" aria-disabled="true">
+              <div class="jog-wheel-dial" id="jog-wheel-dial">
+                <div class="jog-wheel-spoke"></div>
+                <div class="jog-wheel-spoke jog-wheel-spoke-b"></div>
+                <div class="jog-wheel-hub"></div>
+              </div>
+            </div>
+            <span class="jog-wheel-hint">Spin for speed &amp; direction · ←/→ to nudge · Shift faster · Ctrl finer</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="slicer-card">
+        <div class="title-bar">
+          <span class="title-bar-text">SLICER</span>
+          <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+        <div class="card-body">
+          <p class="slicer-hint">Click the waveform to drop a cue mark, drag a mark to move it, right-click to delete it. Bind a mark to a key, then press that key anytime to jump playback there.</p>
+          <p class="slicer-empty-hint" id="slicer-empty-hint">Load a track to start slicing.</p>
+          <div class="slicer-waveform-wrap" id="slicer-waveform-wrap" hidden>
+            <canvas id="slicer-canvas" class="slicer-canvas"></canvas>
+          </div>
+          <div class="slicer-mark-list" id="slicer-mark-list" hidden></div>
+        </div>
+      </section>
+
+      <section class="card" id="presets-card">
+        <div class="title-bar">
+          <span class="title-bar-text">PRESETS</span>
+          <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+        <div class="card-body">
+          <div class="preset-buttons">
+            <button data-preset="slowed-reverb">Slowed + Reverb</button>
+            <button data-preset="nightcore">Nightcore</button>
+            <button data-preset="8d">8D Audio</button>
+            <button data-preset="lofi">Lo-Fi</button>
+            <button data-preset="bass-boost">Bass Boost</button>
+            <button data-preset="vaporwave">Vaporwave</button>
+            <button data-preset="telephone">Telephone</button>
+            <button data-preset="underwater">Underwater</button>
+            <button data-preset="reset" class="reset-btn">Reset</button>
+          </div>
+          <div class="preset-buttons custom-preset-buttons" id="custom-preset-buttons" hidden></div>
+          <button type="button" id="save-preset-btn" class="save-preset-btn">+ Save Current Settings as Preset</button>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <div class="main-column">
+          <section class="card" id="speed-card">
+            <div class="title-bar">
+              <span class="title-bar-text">SPEED</span>
+              <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+            <div class="card-body">
+              <div class="control-row">
+                <label for="speed">Speed <span id="speed-value">1.00×</span></label>
+                <input type="range" id="speed" min="0.05" max="3" step="0.01" value="1" />
+              </div>
+              <label class="control-row checkbox-row">
+                <span class="led-toggle">
+                  <input type="checkbox" id="link-pitch" />
+                  <span class="led" aria-hidden="true"></span>
+                </span>
+                <span class="checkbox-text">Link pitch to speed (classic slowdown sound)</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="card" id="eq-card">
+            <div class="title-bar">
+              <span class="title-bar-text">EQUALIZER</span>
+              <button type="button" id="eq-reset-btn" class="title-bar-btn">Reset</button>
+            </div>
+            <div class="card-body">
+              <div class="spectrum-legend">
+                <span class="legend-item"><span class="legend-dot legend-pre"></span>Before EQ</span>
+                <span class="legend-item"><span class="legend-dot legend-post"></span>After EQ</span>
+              </div>
+              <div class="spectrum-wrap">
+                <canvas id="spectrum-canvas"></canvas>
+              </div>
+              <div class="cutoff-controls">
+                <div class="control-row">
+                  <label for="low-cut">Low cut <span id="low-cut-value">20Hz</span></label>
+                  <input type="range" id="low-cut" min="0" max="1" step="0.001" value="0" />
+                </div>
+                <div class="control-row">
+                  <label for="high-cut">High cut <span id="high-cut-value">20.0kHz</span></label>
+                  <input type="range" id="high-cut" min="0" max="1" step="0.001" value="1" />
+                </div>
+              </div>
+              <div class="eq-bands" id="eq-bands"></div>
+            </div>
+          </section>
+
+          <section class="card" id="fx-chain-card">
+            <div class="title-bar">
+              <span class="title-bar-text">FX CHAIN</span>
+              <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+            <div class="card-body">
+              <div class="fx-chain-list" id="fx-chain-list"></div>
+              <p class="fx-chain-empty-hint" id="fx-chain-empty-hint">Drag a plugin from the library, or tap one to add it here.</p>
+            </div>
+          </section>
+
+        </div>
+
+        <aside class="card" id="library-sidebar">
+          <div class="title-bar">
+            <span class="title-bar-text">PLUGIN LIBRARY</span>
+            <div class="title-bar-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+          </div>
+          <div class="card-body">
+            <div class="library-list" id="library-list"></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

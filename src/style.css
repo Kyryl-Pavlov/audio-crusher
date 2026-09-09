@@ -1,0 +1,1365 @@
+:root {
+  color-scheme: dark;
+
+  /* brushed-metal chrome */
+  --metal-hi: #8a8a8a;
+  --metal-panel: linear-gradient(180deg, #565656 0%, #3a3a3a 6%, #2b2b2b 50%, #232323 100%);
+  --metal-well: linear-gradient(180deg, #1c1c1c 0%, #141414 100%);
+  --bezel-light: #8f8f8f;
+  --bezel-dark: #050505;
+
+  /* titlebar */
+  --titlebar-a: #5b6b90;
+  --titlebar-b: #232a3d;
+  --titlebar-text: #e9edf7;
+
+  /* LCD phosphor */
+  --lcd-bg: #050e05;
+  --lcd-grid: #123312;
+  --lcd-green: #57f057;
+  --lcd-green-bright: #b6ffb6;
+  --lcd-green-dim: #2c7a2c;
+  --lcd-amber: #ffb400;
+  --lcd-red: #ff4d4d;
+
+  --text: #cfd2cf;
+  --text-dim: #90948f;
+  --accent: #57f057;
+  --accent-strong: #39ff14;
+
+  font-family: "VT323", "Consolas", "Courier New", monospace;
+  font-size: 17px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  touch-action: pan-x pan-y;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  touch-action: pan-x pan-y;
+  background: radial-gradient(ellipse at top, #262626 0%, #0a0a0a 65%);
+  color: var(--text);
+  padding: 2.5rem 1rem;
+}
+
+#app {
+  max-width: 1140px;
+  margin: 0 auto;
+  background: #2b2b2b;
+  border: 2px solid;
+  border-color: var(--bezel-light) var(--bezel-dark) var(--bezel-dark) var(--bezel-light);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.75), inset 0 0 0 1px #000;
+}
+
+/* ---------------------------------------------------------------- workspace layout */
+
+.workspace {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.main-column {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#library-sidebar {
+  flex: 0 0 260px;
+  margin: 0.85rem 0.85rem 0.85rem 0;
+  align-self: stretch;
+}
+
+@media (max-width: 760px) {
+  .workspace {
+    flex-direction: column;
+    /* align-items controls the cross axis, which flips from vertical to
+       horizontal once the axis switches to column — reset to stretch so
+       .main-column fills the width instead of shrink-wrapping to its
+       widest min-content child (the non-wrapping EQ band row). */
+    align-items: stretch;
+  }
+
+  #library-sidebar {
+    flex: none;
+    width: auto;
+    margin: 0 0.85rem 0.85rem;
+  }
+}
+
+/* ---------------------------------------------------------------- title bars */
+
+.title-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 24px;
+  padding: 0 6px;
+  background: repeating-linear-gradient(45deg, var(--titlebar-a) 0 2px, var(--titlebar-b) 2px 4px);
+  border-bottom: 1px solid #000;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.title-bar-text {
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--titlebar-text);
+  text-shadow: 1px 1px 0 #000;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title-bar-controls {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+
+.title-bar-controls span {
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(180deg, #cfd6e6, #7c869c);
+  border: 1px solid #000;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.4), inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.title-bar-btn {
+  flex: none;
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--titlebar-text);
+  background: linear-gradient(180deg, #737d99, #333a4d);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.5);
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.title-bar-btn:hover {
+  filter: brightness(1.15);
+}
+
+.title-bar-btn:active {
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.2), inset 1px 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------- app header */
+
+.app-header-body {
+  padding: 0.9rem 1.1rem 0.6rem;
+  background: var(--metal-panel);
+}
+
+.app-header h1 {
+  margin: 0 0 0.2em;
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.03em;
+  color: var(--lcd-green-bright);
+  text-shadow: 0 0 6px rgba(87, 240, 87, 0.55), 1px 1px 0 #000;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+/* ---------------------------------------------------------------- windows/cards */
+
+.card {
+  background: var(--metal-panel);
+  border: 2px solid;
+  border-color: var(--bezel-light) var(--bezel-dark) var(--bezel-dark) var(--bezel-light);
+  margin: 0.85rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.card-body {
+  padding: 1rem 1.1rem;
+}
+
+/* ---------------------------------------------------------------- plugin library (sidebar) */
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.library-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--metal-well);
+  border: 1px solid;
+  border-color: #000 var(--bezel-light) var(--bezel-light) #000;
+  border-left: 4px solid var(--chip-accent, var(--accent));
+  padding: 0.5rem 0.6rem;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: filter 0.15s;
+}
+
+.library-chip:hover,
+.library-chip:focus-visible {
+  filter: brightness(1.2);
+  outline: none;
+}
+
+.library-chip:active {
+  cursor: grabbing;
+}
+
+.library-chip.dragging {
+  opacity: 0.4;
+}
+
+.library-chip-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chip-accent, var(--accent));
+  text-shadow: 0 0 6px var(--chip-accent, var(--accent));
+  font-size: 1.1rem;
+}
+
+.library-chip-label {
+  flex: 1;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------- FX chain */
+
+.fx-chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  /* Unconditional (not scoped to :empty): dragover inserts a .drop-indicator
+     child, which would otherwise flip :empty off mid-drag, collapse this
+     min-height, and pull the container edge out from under the cursor —
+     firing dragleave/dragenter in a loop that reads as constant resizing. */
+  min-height: 5.6rem;
+}
+
+.fx-chain-list.drag-over {
+  outline: 1px dashed var(--accent);
+  outline-offset: 4px;
+}
+
+.fx-chain-empty-hint {
+  margin: 0.4rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.fx-chain-list:not(:empty) + .fx-chain-empty-hint {
+  display: none;
+}
+
+.drop-indicator {
+  height: 3px;
+  margin: -0.35rem 0;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-strong);
+}
+
+.chain-card {
+  margin: 0;
+  border-left: 4px solid var(--chip-accent, var(--accent));
+}
+
+.chain-card.dragging {
+  opacity: 0.4;
+}
+
+.chain-card .title-bar {
+  gap: 0.4rem;
+}
+
+.chain-card .title-bar-icon {
+  flex: none;
+  color: var(--chip-accent, var(--accent));
+  text-shadow: 0 0 6px var(--chip-accent, var(--accent));
+}
+
+.chain-card .drag-handle {
+  flex: none;
+  cursor: grab;
+  color: var(--titlebar-text);
+  opacity: 0.7;
+  padding: 0 2px;
+}
+
+.chain-card .drag-handle:active {
+  cursor: grabbing;
+}
+
+.chain-card .info-btn,
+.chain-card .remove-btn {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 10px;
+  color: var(--titlebar-text);
+  background: linear-gradient(180deg, #737d99, #333a4d);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  padding: 0;
+}
+
+.chain-card .info-btn:hover,
+.chain-card .remove-btn:hover {
+  filter: brightness(1.2);
+}
+
+.chain-card .remove-btn {
+  color: var(--lcd-amber);
+}
+
+/* ---------------------------------------------------------------- tooltip */
+
+.fx-tooltip {
+  position: absolute;
+  z-index: 1000;
+  max-width: 240px;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid), 0 4px 12px rgba(0, 0, 0, 0.7);
+  padding: 0.5rem 0.6rem;
+  pointer-events: none;
+  font-size: 0.85rem;
+}
+
+.fx-tooltip-title {
+  color: var(--lcd-green-bright);
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.3rem;
+  text-shadow: 0 0 4px rgba(87, 240, 87, 0.5);
+}
+
+.fx-tooltip-description {
+  color: var(--lcd-green);
+  margin-bottom: 0.3rem;
+}
+
+.fx-tooltip-howto {
+  color: var(--text-dim);
+}
+
+/* ---------------------------------------------------------------- file loader */
+
+.file-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 58px;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid), inset 0 2px 8px rgba(0, 0, 0, 0.9);
+  cursor: pointer;
+  color: var(--lcd-green-dim);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 0 0.75rem;
+  transition: color 0.15s, box-shadow 0.15s;
+}
+
+.file-drop:hover,
+.file-drop.dragover {
+  color: var(--lcd-green-bright);
+  box-shadow: inset 0 0 0 1px #1f5c1f, inset 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 10px rgba(87, 240, 87, 0.25);
+}
+
+.track-info {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.65rem;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid);
+  font-size: 1.1rem;
+  color: var(--lcd-green);
+  text-shadow: 0 0 4px rgba(87, 240, 87, 0.5);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------- tab capture */
+
+/* Tab-audio capture needs desktop Chrome's getDisplayMedia tab-sharing picker
+   with "Share tab audio" — mobile browsers don't expose it, so the card would
+   just be a dead end there. */
+@media (max-width: 760px) {
+  #capture-card {
+    display: none;
+  }
+}
+
+.capture-hint {
+  margin: 0 0 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.capture-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.capture-btn {
+  background: linear-gradient(180deg, #6a6a6a, #3a3a3a 55%, #2a2a2a);
+  color: var(--text);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.capture-btn:hover {
+  filter: brightness(1.15);
+}
+
+.capture-btn:active {
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.25), inset 1px 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.capture-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.capture-btn.active {
+  background: linear-gradient(180deg, #ff8080, #c81e1e 55%, #7a0f0f);
+  color: #2a0505;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 0 rgba(0, 0, 0, 0.5), 0 0 8px rgba(255, 40, 40, 0.6);
+  animation: capture-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes capture-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+.capture-status {
+  margin: 0.6rem 0 0;
+  color: var(--lcd-amber);
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+
+.capture-trim {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--lcd-grid);
+}
+
+.trim-waveform-canvas {
+  width: 100%;
+  height: 110px;
+  display: block;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid), inset 0 2px 10px rgba(0, 0, 0, 0.85);
+  touch-action: none;
+}
+
+.trim-readout {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.5rem 0 0.75rem;
+  color: var(--lcd-green);
+  font-size: 1rem;
+}
+
+.capture-trim-duration {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------- slicer */
+
+.slicer-hint {
+  margin: 0 0 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.slicer-empty-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.slicer-canvas {
+  width: 100%;
+  height: 110px;
+  display: block;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid), inset 0 2px 10px rgba(0, 0, 0, 0.85);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.slicer-mark-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.slicer-mark-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--metal-well);
+  border: 1px solid;
+  border-color: #000 var(--bezel-light) var(--bezel-light) #000;
+  padding: 0.35rem 0.5rem;
+}
+
+.slicer-mark-row.awaiting {
+  outline: 1px dashed var(--lcd-amber);
+  outline-offset: -1px;
+}
+
+.slicer-mark-time {
+  font-size: 1.1rem;
+  color: var(--lcd-green);
+  text-shadow: 0 0 4px rgba(87, 240, 87, 0.45);
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid);
+  padding: 0 0.4rem;
+  flex: none;
+  width: 4.6em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.slicer-mark-key {
+  flex: 1;
+  min-width: 0;
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: linear-gradient(180deg, #6a6a6a, #3a3a3a 55%, #2a2a2a);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slicer-mark-key:hover {
+  filter: brightness(1.15);
+}
+
+.slicer-mark-key.bound {
+  color: #2a1a00;
+  background: linear-gradient(180deg, #ffd580, var(--lcd-amber) 55%, #a86e00);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 0 rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 180, 0, 0.55);
+}
+
+.slicer-mark-row.awaiting .slicer-mark-key {
+  color: #06210c;
+  background: linear-gradient(180deg, #7fffb0, #17a83f 55%, #0c5c22);
+  animation: capture-pulse 1.4s ease-in-out infinite;
+}
+
+.slicer-mark-go,
+.slicer-mark-del {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 11px;
+  color: var(--titlebar-text);
+  background: linear-gradient(180deg, #737d99, #333a4d);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  padding: 0;
+}
+
+.slicer-mark-go:hover,
+.slicer-mark-del:hover {
+  filter: brightness(1.2);
+}
+
+.slicer-mark-del {
+  color: var(--lcd-amber);
+}
+
+/* Each pad gets its own hue (cycled via --pad-light/--pad-mid/--pad-dark,
+   set per mark in slicerView.ts) so a row of hot-cues reads at a glance like
+   a real drum machine's individually-lit pads, not identical grey buttons. */
+.slicer-mark-go {
+  background: linear-gradient(180deg, var(--pad-light, #8a93ad), var(--pad-mid, #4a5578) 55%, var(--pad-dark, #262b3d));
+}
+
+/* No transition: a drum pad lights up and springs back the instant you touch
+   it, not on an eased tween. */
+.slicer-mark-go:active {
+  transform: scale(0.88);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.4), inset -1px -1px 0 rgba(0, 0, 0, 0.6),
+    0 0 16px 3px var(--pad-mid, var(--accent-strong));
+}
+
+/* On mobile, a scrolling list of thin rows is fiddly to tap — lay marks out as
+   a 3-column matrix of big square pads instead, drum-machine style. Reusing
+   the existing row markup via grid-area (rather than restructuring the DOM)
+   keeps this purely a mobile presentation of the same marks. */
+@media (max-width: 760px) {
+  .slicer-mark-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-top: 0.85rem;
+  }
+
+  .slicer-mark-row {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    padding: 0.4rem;
+    /* A grid item's default automatic minimum size is its content's min-content
+       width, which fights the 1fr track and pushes the whole row (and the page)
+       wider than the viewport — this opts it back into actually shrinking to
+       fit its column. */
+    min-width: 0;
+  }
+
+  /* The keyboard hot-cue binding is a desktop convenience — mobile has no
+     physical keyboard to bind to — so the pad reduces to a timestamp badge,
+     a big trigger, and a way to delete it, drum-machine style. */
+  .slicer-mark-key {
+    display: none;
+  }
+
+  /* Absolute + z-index so the badge always sits pinned on top of the pad —
+     including its own glow/scale on press — rather than being pushed around
+     by, or ducking behind, the trigger button underneath it. */
+  .slicer-mark-time {
+    position: absolute;
+    z-index: 2;
+    top: 0.35rem;
+    left: 0.35rem;
+    width: auto;
+    max-width: calc(100% - 1.6rem);
+    font-size: 0.65rem;
+    padding: 0 0.3em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .slicer-mark-del {
+    position: absolute;
+    z-index: 2;
+    top: 0.4rem;
+    right: 0.4rem;
+  }
+
+  .slicer-mark-go {
+    width: 100%;
+    height: 100%;
+    font-size: 2.4rem;
+  }
+}
+
+/* ---------------------------------------------------------------- transport */
+
+.transport-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+.transport-row:last-child {
+  margin-bottom: 0;
+}
+
+.play-btn,
+.loop-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 0;
+  background: linear-gradient(180deg, #7d7d7d, #3e3e3e 55%, #262626);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.4), inset -1px -1px 0 rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.6);
+  color: #eafeea;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.play-btn:not(:disabled):hover,
+.loop-btn:not(:disabled):hover {
+  filter: brightness(1.15);
+}
+
+.play-btn:active:not(:disabled),
+.loop-btn:active:not(:disabled) {
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.3), inset 1px 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.play-btn:disabled,
+.loop-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.loop-btn.active {
+  background: linear-gradient(180deg, #7fffb0, #17a83f 55%, #0c5c22);
+  color: #06210c;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.55), inset -1px -1px 0 rgba(0, 0, 0, 0.5), 0 0 8px rgba(57, 255, 20, 0.55);
+}
+
+.time {
+  font-size: 1.3rem;
+  color: var(--lcd-green);
+  text-shadow: 0 0 4px rgba(87, 240, 87, 0.45);
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid);
+  padding: 0 0.4rem;
+  flex: none;
+  width: 3.6em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.control-label {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  flex: none;
+  width: 4.5em;
+}
+
+/* Below ~480px, play+loop+two LCD time chips no longer fit alongside the seek
+   bar on one line. Shrink the fixed-width chrome and drop the seek bar to its
+   own full-width line rather than letting the row overflow the window. */
+@media (max-width: 480px) {
+  .play-btn,
+  .loop-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .time {
+    font-size: 1.05rem;
+    width: 2.7em;
+    padding: 0 0.3rem;
+  }
+
+  .transport-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  #seek {
+    order: 1;
+    flex-basis: 100%;
+    width: 100%;
+    margin-top: 0.15rem;
+  }
+}
+
+/* ---------------------------------------------------------------- jog wheel */
+
+.jog-row {
+  gap: 0.9rem;
+}
+
+.jog-wheel {
+  --jog-size: 256px;
+  width: var(--jog-size);
+  height: var(--jog-size);
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #6a6a6a 0%, #3a3a3a 45%, #1c1c1c 100%);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 2px 4px rgba(255, 255, 255, 0.15),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+  touch-action: none;
+  position: relative;
+  outline-offset: 2px;
+}
+
+.jog-wheel:focus-visible {
+  outline: 2px solid var(--accent-strong);
+}
+
+.jog-wheel.dragging {
+  cursor: grabbing;
+}
+
+.jog-wheel.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.jog-wheel-dial {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.jog-wheel-spoke {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  width: 1px;
+  height: 38%;
+  background: linear-gradient(180deg, rgba(87, 240, 87, 0.85), rgba(87, 240, 87, 0));
+  transform: translateX(-50%);
+}
+
+.jog-wheel-spoke-b {
+  top: 50%;
+  left: 50%;
+  width: 38%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+  transform: translateY(-50%);
+}
+
+.jog-wheel-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, #4a4a4a, #101010 75%);
+  border: 1px solid #000;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25);
+}
+
+.jog-wheel-hint {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .jog-wheel-hint {
+    display: none;
+  }
+
+  .jog-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .jog-wheel {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+}
+
+/* ---------------------------------------------------------------- sliders */
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: var(--metal-well);
+  border: 1px solid;
+  border-color: #000 var(--bezel-light) var(--bezel-light) #000;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: var(--metal-well);
+  border: 1px solid;
+  border-color: #000 var(--bezel-light) var(--bezel-light) #000;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 16px;
+  margin-top: -6px;
+  background: linear-gradient(180deg, #b3b3b3, #626262 45%, #3a3a3a);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.55), inset -1px -1px 0 rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 11px;
+  height: 16px;
+  border-radius: 0;
+  background: linear-gradient(180deg, #b3b3b3, #626262 45%, #3a3a3a);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.55), inset -1px -1px 0 rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  filter: brightness(1.12);
+}
+
+input[type="range"]:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Touch has no hover and much less precision than a mouse cursor, so on a
+   coarse (touch) pointer every slider thumb and LED checkbox grows well past
+   a fingertip's minimum comfortable target instead of staying mouse-sized. */
+@media (pointer: coarse) {
+  input[type="range"]::-webkit-slider-runnable-track,
+  input[type="range"]::-moz-range-track {
+    height: 10px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 30px;
+    margin-top: -10px;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 30px;
+  }
+
+  .eq-band input[type="range"] {
+    width: 16px;
+  }
+
+  .eq-band {
+    min-width: 58px;
+  }
+
+  .led-toggle {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ---------------------------------------------------------------- EQ / spectrum */
+
+.spectrum-legend {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  border: 1px solid #000;
+}
+
+.legend-pre {
+  background: var(--lcd-green-dim);
+}
+
+.legend-post {
+  background: var(--lcd-green);
+  box-shadow: 0 0 4px rgba(87, 240, 87, 0.7);
+}
+
+.spectrum-wrap {
+  position: relative;
+}
+
+#spectrum-canvas {
+  width: 100%;
+  height: 140px;
+  display: block;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid), inset 0 2px 10px rgba(0, 0, 0, 0.85);
+}
+
+.spectrum-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cutoff-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.5rem;
+  margin-top: 0.9rem;
+}
+
+.cutoff-controls .control-row {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+/* Two columns leave too little room for "High cut" plus its value badge
+   on one line, wrapping the label ragged — stack the cutoffs instead. */
+@media (max-width: 480px) {
+  .cutoff-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+#eq-card .eq-bands {
+  margin-top: 1.1rem;
+}
+
+/* ---------------------------------------------------------------- generic control rows */
+
+.control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.control-row:last-child {
+  margin-bottom: 0;
+}
+
+.control-row label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.control-row label span {
+  color: var(--lcd-green);
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid);
+  padding: 0 0.35em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- level meter */
+
+.level-meter {
+  position: relative;
+  height: 10px;
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid);
+  overflow: hidden;
+}
+
+.transport-row .level-meter {
+  flex: 1;
+  min-width: 0;
+}
+
+.level-meter-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: var(--lcd-green);
+  box-shadow: 0 0 6px var(--accent-strong);
+}
+
+.level-meter-fill.level-meter-warn {
+  background: var(--lcd-amber);
+  box-shadow: 0 0 6px var(--lcd-amber);
+}
+
+.level-meter-fill.level-meter-hot {
+  background: var(--lcd-red);
+  box-shadow: 0 0 6px var(--lcd-red);
+}
+
+.level-meter-threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 2px;
+  background: var(--lcd-green-bright);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+}
+
+/* ---------------------------------------------------------------- LED toggles (checkboxes) */
+
+.checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+}
+
+.checkbox-text {
+  flex: 1;
+  color: var(--text-dim);
+}
+
+.led-toggle {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.led-toggle input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.led-toggle .led {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 35% 30%, #2e2e2e, #101010 75%);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 1px rgba(0, 0, 0, 0.8), inset -1px -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.led-toggle input:checked + .led {
+  background: radial-gradient(circle at 35% 30%, #c8ffc0, var(--accent-strong) 55%, #0e5c0e 100%);
+  box-shadow: 0 0 7px 1px rgba(57, 255, 20, 0.85), inset 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.led-toggle input:focus-visible + .led {
+  outline: 1px dotted var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- select */
+
+select {
+  background: var(--lcd-bg);
+  color: var(--lcd-green);
+  font-family: "VT323", monospace;
+  font-size: 1.05rem;
+  border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--lcd-grid);
+  padding: 0.3rem 0.4rem;
+}
+
+/* ---------------------------------------------------------------- graphic EQ bands */
+
+.eq-bands {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  height: 260px;
+  padding: 1rem 0.75rem;
+  background: var(--metal-well);
+  border: 1px solid;
+  border-color: #000 var(--bezel-light) var(--bezel-light) #000;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lcd-green-dim) var(--metal-well);
+}
+
+.eq-bands::-webkit-scrollbar {
+  height: 8px;
+}
+
+.eq-bands::-webkit-scrollbar-track {
+  background: var(--metal-well);
+}
+
+.eq-bands::-webkit-scrollbar-thumb {
+  background: var(--lcd-green-dim);
+  border: 1px solid #000;
+}
+
+.eq-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 0%;
+  min-width: 48px;
+}
+
+.eq-band input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 8px;
+  flex: 1;
+}
+
+.eq-band .eq-freq-label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.eq-band .eq-gain-label {
+  font-size: 0.95rem;
+  color: var(--lcd-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.eq-band-disabled {
+  opacity: 0.35;
+}
+
+.eq-band input[type="range"]:disabled {
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+button {
+  font-family: inherit;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.preset-buttons button {
+  background: linear-gradient(180deg, #6a6a6a, #3a3a3a 55%, #2a2a2a);
+  color: var(--text);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.preset-buttons button:hover {
+  filter: brightness(1.15);
+}
+
+.preset-buttons button:active {
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.25), inset 1px 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.preset-buttons button.active {
+  color: #2a1a00;
+  background: linear-gradient(180deg, #ffd580, var(--lcd-amber) 55%, #a86e00);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 0 rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 180, 0, 0.55);
+}
+
+.preset-buttons .reset-btn {
+  margin-left: auto;
+  color: var(--lcd-amber);
+}
+
+.custom-preset-buttons {
+  margin-top: 0.6rem;
+}
+
+.custom-preset-chip {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.custom-preset-chip .remove-btn {
+  flex: none;
+  width: 28px;
+  font-family: "Silkscreen", "VT323", monospace;
+  font-size: 12px;
+  color: var(--lcd-amber);
+  background: linear-gradient(180deg, #6a6a6a, #3a3a3a 55%, #2a2a2a);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.custom-preset-chip .remove-btn:hover {
+  filter: brightness(1.2);
+}
+
+/* Distinct green "go" accent (rather than the neutral grey preset buttons) so this
+   reads as the call-to-action it is, not just another preset in the row. */
+.save-preset-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  background: linear-gradient(180deg, #7fffb0, var(--accent) 55%, #0c5c22);
+  color: #04250f;
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.4), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  padding: 0.6rem 0.95rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.save-preset-btn:hover {
+  filter: brightness(1.1);
+}
+
+.save-preset-btn:active {
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.3), inset 1px 1px 0 rgba(0, 0, 0, 0.55);
+}
