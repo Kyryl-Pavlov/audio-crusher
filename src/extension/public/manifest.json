@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Audio Crusher",
+  "version": "0.1.0",
+  "description": "Live-stream tab's audio through Audio Crusher's real-time Web Audio FX chain from a persistent side panel.",
+  "permissions": ["sidePanel", "activeTab", "tabs"],
+  "action": {
+    "default_title": "Open Audio Crusher"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
