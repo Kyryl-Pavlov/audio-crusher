@@ -21,7 +21,15 @@ const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;code
 export async function startTabCapture(): Promise<TabCapture> {
   // Chrome only offers a "share tab audio" checkbox when video is requested too; the
   // video track is discarded immediately since only the audio is needed here.
-  const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  // Leaving audio constraints unspecified lets Chrome default echoCancellation/
+  // noiseSuppression/autoGainControl to on, routing the track through its voice-call
+  // APM pipeline before it ever reaches the encoder below — no bitrate setting can
+  // recover fidelity the source signal already lost that way. Disabling them keeps
+  // the tab's original stereo signal intact going into MediaRecorder.
+  const displayStream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 },
+  });
   displayStream.getVideoTracks().forEach((t) => t.stop());
 
   const audioTracks = displayStream.getAudioTracks();

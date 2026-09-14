@@ -4,6 +4,7 @@ import noiseGateProcessorUrl from "./worklets/noiseGateProcessor.js?url";
 import bitcrusherProcessorUrl from "./worklets/bitcrusherProcessor.js?url";
 import stutterProcessorUrl from "./worklets/stutterProcessor.js?url";
 import reverseDelayProcessorUrl from "./worklets/reverseDelayProcessor.js?url";
+import liveSpeedProcessorUrl from "./worklets/liveSpeedProcessor.js?url";
 import { ramp } from "./ramp";
 import { ModuleChain } from "./ModuleChain";
 import { reverseAudioBuffer } from "./reverseBuffer";
@@ -75,6 +76,11 @@ const CHAIN_REWIRE_DUCK_SECONDS = 0.008;
 // bitcrushed-sounding artifact. Ducking around every swap, the same trick rewireChain()
 // uses, turns each one into an inaudible micro-fade instead.
 const SEEK_DUCK_SECONDS = 0.006;
+// How long a live-capture speed request below 1x keeps playing normal-speed audio
+// before handing off to the buffered stretcher (see setSpeed()'s live-mode state
+// machine) — long enough for a real, comfortable backlog margin to build first, so the
+// handoff itself doesn't start right at the ragged edge of what's achievable.
+const LIVE_SLOW_ENGAGE_DELAY_MS = 2500;
 
 export class EffectsGraph {
   readonly ctx: AudioContext;
@@ -91,6 +97,20 @@ export class EffectsGraph {
   // so tempo (Speed) can never be a multi-instance chain module — it lives here instead,
   // auto-compensating pitch for the tempo change unless linkPitchToSpeed is enabled.
   private readonly speedNode: SoundTouchNode;
+  // A live MediaStreamAudioSourceNode has no playbackRate to get tempo change for free
+  // from (unlike the buffered file-playback path — see setSpeed()), so this does real
+  // time-domain stretching for the live-capture path only, but only once there's a
+  // real backlog behind it to draw on — see setSpeed()'s live-mode state machine and
+  // liveSpeedProcessor.js for how.
+  private readonly liveSpeedNode: AudioWorkletNode;
+  // liveSourceNode feeds exactly one of these two at a time (see setSpeed()): raw for
+  // speed >= 1 (unprocessed passthrough — speedNode still applies a pitch-only shift
+  // above 1x, see syncLinkedPitch()), processed for speed < 1 once liveSpeedNode has
+  // had its LIVE_SLOW_ENGAGE_DELAY_MS head start. Both stay permanently connected
+  // downstream; only their gain (hard-switched, never crossfaded — see
+  // switchLiveOutput()) determines which is actually audible.
+  private readonly liveRawGain: GainNode;
+  private readonly liveProcessedGain: GainNode;
 
   private readonly chainOutputGain: GainNode;
   private readonly moduleChain: ModuleChain;
@@ -112,19 +132,47 @@ export class EffectsGraph {
   private reversedBuffer: AudioBuffer | null = null;
   private reverseEnabled = false;
   private sourceNode: AudioBufferSourceNode | null = null;
+  private liveSourceNode: MediaStreamAudioSourceNode | null = null;
   private rate = 1;
   private linkPitchToSpeed = false;
+  // liveSpeedNode's own estimate of source-samples-consumed-per-output-sample, which
+  // falls short of `rate` whenever it doesn't have enough buffered backlog to fully
+  // honor a speed request (see liveSpeedProcessor.js). Used in place of `rate` for the
+  // live path's link-pitch shift, so that shift backs off along with the tempo change
+  // actually being achieved instead of continuing to apply the full requested amount.
+  private liveAchievedSpeed = 1;
+  // "raw": liveRawGain audible, liveSpeedNode not fed (speed >= 1). "engaging":
+  // liveSpeedNode fed and building backlog, but liveRawGain still audible — a request
+  // to slow down just landed and hasn't waited out LIVE_SLOW_ENGAGE_DELAY_MS yet.
+  // "slow": liveProcessedGain audible. See setSpeed().
+  private liveMode: "raw" | "engaging" | "slow" = "raw";
+  private liveEngageTimer: ReturnType<typeof setTimeout> | null = null;
   private ctxTimeAtStart = 0;
   private bufferOffsetAtStart = 0;
   private playing = false;
   private loopEnabled = false;
 
   onEnded: (() => void) | null = null;
+  /** Fires on every live-path setSpeed() call, with the current liveMode and rate —
+   *  lets the UI show what the live-capture speed control is actually doing (raw,
+   *  buffering, or slowed) instead of a single static "connected" message. Never
+   *  fires for file playback. */
+  onLiveSpeedStatus: ((mode: "raw" | "engaging" | "slow", rate: number) => void) | null = null;
 
   private constructor(ctx: AudioContext) {
     this.ctx = ctx;
 
     this.speedNode = new SoundTouchNode({ context: ctx });
+    this.liveSpeedNode = new AudioWorkletNode(ctx, "live-speed-processor");
+    this.liveSpeedNode.port.onmessage = (e: MessageEvent) => {
+      if (e.data?.type !== "achievedSpeed") return;
+      this.liveAchievedSpeed = e.data.value;
+      if (this.liveSourceNode) this.syncLinkedPitch();
+    };
+    this.liveRawGain = ctx.createGain();
+    this.liveRawGain.gain.value = 1;
+    this.liveProcessedGain = ctx.createGain();
+    this.liveProcessedGain.gain.value = 0;
 
     this.lowCutFilters = Array.from({ length: CUTOFF_FILTER_STAGES }, () => {
       const filter = ctx.createBiquadFilter();
@@ -184,6 +232,7 @@ export class EffectsGraph {
       ctx.audioWorklet.addModule(bitcrusherProcessorUrl),
       ctx.audioWorklet.addModule(stutterProcessorUrl),
       ctx.audioWorklet.addModule(reverseDelayProcessorUrl),
+      ctx.audioWorklet.addModule(liveSpeedProcessorUrl),
     ]);
     return new EffectsGraph(ctx);
   }
@@ -196,6 +245,9 @@ export class EffectsGraph {
     for (let i = 0; i < this.highCutFilters.length - 1; i++) {
       this.highCutFilters[i].connect(this.highCutFilters[i + 1]);
     }
+    this.liveRawGain.connect(this.loopSeamGain);
+    this.liveSpeedNode.connect(this.liveProcessedGain);
+    this.liveProcessedGain.connect(this.loopSeamGain);
     this.loopSeamGain.connect(this.lowCutFilters[0]);
 
     const cutoffOut = this.highCutFilters[this.highCutFilters.length - 1];
@@ -692,13 +744,64 @@ export class EffectsGraph {
   /** Adopts an already-decoded buffer as the current track — shared by file/array-buffer
    *  loading and by the tab-capture trim flow, which slices a buffer before handing it here. */
   loadAudioBuffer(audioBuffer: AudioBuffer): AudioBuffer {
+    this.disconnectLiveStream();
     if (this.playing) this.pause();
     this.buffer = audioBuffer;
     this.reversedBuffer = null;
     this.reverseEnabled = false;
     this.bufferOffsetAtStart = 0;
     this.ctxTimeAtStart = 0;
+    // Re-syncs speedNode's playbackRate/pitch for the file path (see setSpeed()) — it
+    // may have been left tracking whatever a previous live-capture session needed.
+    this.setSpeed(this.rate);
     return audioBuffer;
+  }
+
+  // --- Live stream input (browser-extension tab capture) --------------------
+
+  /** Feeds a live MediaStream (e.g. a captured browser tab) into the same graph entry
+   *  point the buffer-based transport uses, tearing down any buffer playback first —
+   *  the two source kinds are mutually exclusive. */
+  connectLiveStream(stream: MediaStream) {
+    this.disconnectLiveStream();
+    if (this.sourceNode) {
+      this.sourceNode.onended = null;
+      this.sourceNode.stop();
+      this.sourceNode.disconnect();
+      this.sourceNode = null;
+    }
+    this.playing = false;
+    this.buffer = null;
+    this.reversedBuffer = null;
+    this.reverseEnabled = false;
+    this.bufferOffsetAtStart = 0;
+    this.ctxTimeAtStart = 0;
+    // buffer is now null, so this snaps loopSeamGain back to 1 and clears the loop-seam schedule.
+    this.resetLoopSeamSchedule();
+
+    this.liveSourceNode = this.ctx.createMediaStreamSource(stream);
+    this.liveSourceNode.connect(this.liveRawGain);
+    // Re-syncs speedNode's playbackRate/pitch for the live path (see setSpeed()) — it
+    // was left tracking whatever the file-playback path last needed. Also engages the
+    // live-mode state machine below if the current rate calls for slowed playback.
+    this.setSpeed(this.rate);
+    void this.ctx.resume();
+  }
+
+  disconnectLiveStream() {
+    if (!this.liveSourceNode) return;
+    this.liveSourceNode.disconnect();
+    this.liveSourceNode = null;
+    // liveSourceNode.disconnect() above already dropped its edge to liveSpeedNode (if
+    // any), so only the local bookkeeping needs resetting here — no audible-transition
+    // duck needed, since the source itself just went away.
+    if (this.liveEngageTimer !== null) {
+      clearTimeout(this.liveEngageTimer);
+      this.liveEngageTimer = null;
+    }
+    this.liveMode = "raw";
+    this.liveRawGain.gain.value = 1;
+    this.liveProcessedGain.gain.value = 0;
   }
 
   get duration(): number {
@@ -888,11 +991,75 @@ export class EffectsGraph {
     }
     this.rate = rate;
     if (this.sourceNode) this.sourceNode.playbackRate.value = rate;
-    ramp(this.ctx, this.speedNode.playbackRate, rate);
+    // File playback gets its actual tempo change for free from the native buffer-source
+    // resample above; speedNode's own playbackRate param exists purely to tell it how
+    // much of that already happened, so it can shift pitch back to compensate. A live
+    // capture has no native resample to compensate for — speedNode is told none
+    // occurred here and (for live) only ever applies a pitch-only shift, never a tempo
+    // change — see syncLinkedPitch() and updateLiveSpeedMode().
+    const isLive = this.liveSourceNode !== null;
+    ramp(this.ctx, this.speedNode.playbackRate, isLive ? 1 : rate);
+    ramp(this.ctx, this.liveSpeedNode.parameters.get("speed")!, rate);
+    if (isLive) this.updateLiveSpeedMode(rate);
     this.syncLinkedPitch();
     // Changing rate changes the loop period, so every previously scheduled seam-fade
     // boundary is now wrong — rebase the schedule from the current position.
     if (this.playing) this.resetLoopSeamSchedule();
+    if (isLive) this.onLiveSpeedStatus?.(this.liveMode, rate);
+  }
+
+  /** Connects/disconnects liveSpeedNode's input and, once a slowdown has actually had
+   *  its head start (or is being abandoned), hard-switches which live path is audible.
+   *  A live stream can't get real tempo change above 1x (nothing to draw backlog from —
+   *  see syncLinkedPitch()) or sustain it below 1x without buffering first, so this is
+   *  the only place liveSpeedNode's input is ever connected at all. */
+  private updateLiveSpeedMode(rate: number) {
+    const wantSlow = rate < 1;
+    if (wantSlow && this.liveMode === "raw") {
+      this.liveSourceNode!.connect(this.liveSpeedNode);
+      this.liveMode = "engaging";
+      this.liveEngageTimer = setTimeout(() => this.commitToSlowLiveMode(), LIVE_SLOW_ENGAGE_DELAY_MS);
+    } else if (!wantSlow && this.liveMode !== "raw") {
+      if (this.liveEngageTimer !== null) {
+        clearTimeout(this.liveEngageTimer);
+        this.liveEngageTimer = null;
+      }
+      const wasSlow = this.liveMode === "slow";
+      this.liveMode = "raw";
+      this.liveSourceNode!.disconnect(this.liveSpeedNode);
+      // Every fresh engagement should start clean rather than resume wherever a
+      // previous one (possibly minutes ago) left off — see liveSpeedProcessor.js's
+      // reset handler.
+      this.liveSpeedNode.port.postMessage({ type: "reset" });
+      if (wasSlow) this.switchLiveOutput(false);
+    }
+    // else: already in the mode this rate calls for (engaging->engaging while still
+    // waiting, or raw->raw) -- nothing structural to do; the speed AudioParam ramp
+    // above already covers a target change mid-wait or mid-slowdown.
+  }
+
+  /** LIVE_SLOW_ENGAGE_DELAY_MS elapsed since a slowdown was requested with nothing
+   *  superseding it in the meantime — hands audible output over to liveSpeedNode. */
+  private commitToSlowLiveMode() {
+    this.liveEngageTimer = null;
+    if (this.liveMode !== "engaging") return; // cancelled or already handled
+    this.liveMode = "slow";
+    this.switchLiveOutput(true);
+    this.onLiveSpeedStatus?.(this.liveMode, this.rate);
+  }
+
+  /** Hard-switches which live path (raw passthrough vs. liveSpeedNode's processed
+   *  output) is audible, ducking the master output briefly to hide the switch itself —
+   *  the same technique rewireChain() uses for swapping what's feeding the graph. */
+  private switchLiveOutput(toProcessed: boolean) {
+    const now = this.ctx.currentTime;
+    const gain = this.masterGain.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(this.masterVolume, now);
+    gain.linearRampToValueAtTime(0, now + CHAIN_REWIRE_DUCK_SECONDS);
+    this.liveRawGain.gain.value = toProcessed ? 0 : 1;
+    this.liveProcessedGain.gain.value = toProcessed ? 1 : 0;
+    gain.linearRampToValueAtTime(this.masterVolume, now + CHAIN_REWIRE_DUCK_SECONDS * 2);
   }
 
   setLinkPitchToSpeed(linked: boolean) {
@@ -901,7 +1068,26 @@ export class EffectsGraph {
   }
 
   private syncLinkedPitch() {
-    ramp(this.ctx, this.speedNode.pitch, this.linkPitchToSpeed ? this.rate : 1.0);
+    const isLive = this.liveSourceNode !== null;
+    if (isLive && this.rate > 1) {
+      // Speed > 1x on a live stream never has backlog to draw real tempo change from
+      // (updateLiveSpeedMode() only ever engages liveSpeedNode below 1x), so instead of
+      // pretending, this always raises pitch instead — vari-speed style — regardless of
+      // "link pitch to speed": there's no real tempo change happening in this range for
+      // that setting to link pitch to.
+      ramp(this.ctx, this.speedNode.pitch, Math.min(8, this.rate));
+      return;
+    }
+    if (!this.linkPitchToSpeed) {
+      ramp(this.ctx, this.speedNode.pitch, 1.0);
+      return;
+    }
+    const target = isLive ? this.liveAchievedSpeed : this.rate;
+    // speedNode.pitch's own valid range (SoundTouchNode's own AudioParam) is [0.1, 8] —
+    // narrower than this app's Speed slider (0.05-3) — so a low-enough speed would
+    // otherwise ask for a pitch shift the node can't represent and Chrome would clamp
+    // (and log a warning about) on its own; clamping here instead keeps that silent.
+    ramp(this.ctx, this.speedNode.pitch, Math.min(8, Math.max(0.1, target)));
   }
 
   // --- Low-cut / high-cut filters ----------------------------------------------

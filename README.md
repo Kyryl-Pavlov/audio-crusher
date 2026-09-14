@@ -7,6 +7,8 @@ nothing is ever uploaded anywhere.
 
 **Live app: https://kyryl-pavlov.github.io/audio-crusher/**
 
+![Audio Crusher interface](static/screenshot.png)
+
 ## Features
 
 - **Load a track** — drag a file onto the loader, or pick one from disk. Any format
@@ -14,6 +16,13 @@ nothing is ever uploaded anywhere.
 - **Capture tab audio** — grab whatever's playing in another browser tab (e.g. a
   YouTube Music tab) via the browser's own share-tab picker, trim the recording on a
   waveform, then load the trimmed selection straight into the player.
+- **Live tab audio (browser extension)** — a companion Chrome extension with a
+  persistent side panel: connect to a tab and its audio streams straight through the
+  FX chain in real time (no record-then-trim step), with the source tab automatically
+  muted so only the processed signal plays. Speed below 1× is achieved with a
+  WSOLA time-stretcher running in an AudioWorklet, since a live `MediaStream` has no
+  native playback-rate knob to lean on the way a loaded file does. See
+  [Browser extension](#browser-extension) below to build and load it.
 - **Transport** — play/pause, reverse playback, seamless loop (crossfaded so the loop
   point never clicks), a seek bar, volume with a live level meter, and a jog wheel you
   can drag or scrub with the arrow keys (Shift = faster, Ctrl = finer).
@@ -67,6 +76,20 @@ npm test           # both test suites
 
 The e2e suite drives a real Chromium instance via Playwright. If it's not installed
 yet, run `npx playwright install chromium` once before `npm run test:e2e`.
+
+## Browser extension
+
+The live tab-audio feature ships as a separate Chrome (MV3) extension build, built
+and loaded independently of the main web app:
+
+```bash
+npm run build:extension   # outputs to dist-extension/
+```
+
+Then in Chrome/Edge/Brave: go to `chrome://extensions`, enable **Developer mode**,
+**Load unpacked**, and select `dist-extension/`. Click the extension icon to open its
+side panel, play audio in the tab you want to process, then **Connect to This Tab**
+and pick that tab with "Share tab audio" enabled in the share dialog.
 
 ## Browser support
 
